@@ -1,30 +1,67 @@
 package main
 
 import (
-	"github.com/kataras/iris"
-)
+	"os"
+  "os/exec"
+  "log"
 
-// Serve using a host:port form.
-var addr = iris.Addr("localhost:8080")
+	"github.com/kataras/iris"
+	"github.com/kataras/iris/context"
+
+)
 
 func main() {
 	app := iris.New()
 
-	// GET: http://localhost:8080
 	app.Get("/", index)
 
-	// GET: http://localhost:808/print
-	app.Get("/print", iris.Gzip, article)
+	apiGroup := app.Party("/cups")
+	{
+		apiGroup.Get("/lp/{impresora:string}/{fichero:string}", lp)
+    apiGroup.Get("/lpstat", lpstat)
+	}
 
-	// Now listening on: http://localhost:8080
-	// Application started. Press CTRL+C to shut down.
-	app.Run(addr)
+	app.Run(iris.Addr(":" + port()))
 }
 
-func print(ctx iris.Context) {
-  ctx.JSON(iris.Map{"message": "Print"})
+func port() string {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	if port[0] == ':' {
+		port = port[1:]
+	}
+
+	return port
 }
 
-func index(ctx iris.Context) {
-	ctx.JSON(iris.Map{"message": "Hello World"})
+func index(ctx context.Context) {
+	ctx.Writef("Welcome to CUPSasMicroservice")
+}
+
+func lpstat(ctx context.Context) {
+  cmd := "lpstat -a"
+  log.Println("lpstat")
+  out, err := exec.Command("bash", "-c", cmd).Output()
+  if err != nil {
+    ctx.Writef(err.Error())
+  }
+  ctx.Writef(string(out))
+
+}
+
+func lp(ctx context.Context) {
+  directorio := "/files"
+  impresora := ctx.Params().Get("impresora")
+  fichero := ctx.Params().Get("fichero")
+  cmd := "/usr/bin/lp"
+  log.Printf("%s impresora=%s fichero=%s\n", cmd, impresora, directorio + "/" + fichero)
+  out, err := exec.Command("bash", "-c", cmd + " -d " + impresora + " " + directorio + "/" + fichero).Output()
+  if err != nil {
+    ctx.Writef(err.Error())
+  }
+  ctx.Writef(string(out))
+
 }
